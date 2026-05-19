@@ -186,8 +186,14 @@ export default function App() {
   const [aiOpponent, setAiOpponent] = useState<AIOpponent | null>(null);
   const [swapCount, setSwapCount] = useState(3);
   const [redrawCount, setRedrawCount] = useState(3);
+  // Use refs to avoid stale closure in draw/swap handlers
+  const swapCountRef = useRef(swapCount);
+  const redrawCountRef = useRef(redrawCount);
+  swapCountRef.current = swapCount;
+  redrawCountRef.current = redrawCount;
   const [isSwapping, setIsSwapping] = useState(false);
   const [swapSelected, setSwapSelected] = useState<Card | null>(null);
+  const [showSortMenu, setShowSortMenu] = useState(false);
   const [showComboPreview, setShowComboPreview] = useState(false);
   const [pendingCombo, setPendingCombo] = useState<CardCombo | null>(null);
   const [detailCard, setDetailCard] = useState<Card | null>(null);
@@ -265,7 +271,9 @@ export default function App() {
   };
 
   // ===== NEXT ROUND =====
-  const nextRound = useCallback(() => {
+  // Not wrapped in useCallback - ensures fresh closure every render,
+  // preventing stale state for swap/redraw reset
+  const nextRound = () => {
     const s = st.current;
 
     if (s.playerWins >= 2 || s.aiWins >= 2) {
@@ -275,8 +283,6 @@ export default function App() {
         playIf(audioObj.current, () => AudioFX.victory());
         if (s.currentLevel) {
           unlockLevel(s.currentLevel.id + 1);
-          // 注意：每轮胜利已在roundEnd中奖励解锁一张新卡
-          // 此处不再重复解锁，避免计数翻倍
         }
       }
       setGamePhase('matchEnd');
@@ -290,6 +296,9 @@ export default function App() {
       setAiHand(prev => [...prev, ...aiNewCards]);
     }
 
+    // Force synchronous reset of swap/redraw counts using refs
+    swapCountRef.current = 3;
+    redrawCountRef.current = 3;
     setRound(r => r + 1);
     setSelectedCards([]);
     setPlayerPlayed([]);
@@ -303,10 +312,10 @@ export default function App() {
     setSwapSelected(null);
     setGamePhase('dice');
     playIf(audioObj.current, () => AudioFX.deal());
-  }, []);
+  };
 
-  // Keep ref in sync
-  useEffect(() => { nextRoundRef.current = nextRound; }, [nextRound]);
+  // Keep ref in sync - runs every render since nextRound is not memoized
+  nextRoundRef.current = nextRound;
 
   // ===== DICE ROLL =====
   const handleRollDice = useCallback(() => {
@@ -480,7 +489,7 @@ export default function App() {
 
   // ===== SWAP CARD =====
   const executeSwap = () => {
-    if (!swapSelected || swapCount <= 0 || !st.current.deckManager) return;
+    if (!swapSelected || swapCountRef.current <= 0 || !st.current.deckManager) return;
     const newCard = st.current.deckManager.draw(1)[0];
     if (!newCard) return;
     playIf(audioObj.current, () => AudioFX.deal());
@@ -498,11 +507,13 @@ export default function App() {
     setSwapSelected(null);
   };
 
-  // ===== REDRAW - discard current hand, draw equal number of new cards =====
+  // ===== REDRAW - discard current hand into discard pile, then draw equal number of new cards =====
   const executeRedraw = () => {
-    if (redrawCount <= 0 || !st.current.deckManager) return;
+    if (redrawCountRef.current <= 0 || !st.current.deckManager) return;
     playIf(audioObj.current, () => AudioFX.deal());
     const count = playerHand.length;
+    // CRITICAL: discard old hand into discard pile so deck can recycle them
+    st.current.deckManager.discard([...playerHand]);
     const newCards = st.current.deckManager.draw(count);
     setPlayerHand(newCards);
     setSelectedCards([]);
@@ -513,6 +524,46 @@ export default function App() {
     setComboHighlight({});
     setRedrawCount(prev => prev - 1);
   };
+
+  // ===== SORT HAND =====
+  // 1) Sort by current attribute score (descending)
+  const sortHandByScore = () => {
+    if (!currentAttribute) return;
+    playIf(audioObj.current, () => AudioFX.click());
+    setPlayerHand(prev => [...prev].sort((a, b) => b.attributes[currentAttribute] - a.attributes[currentAttribute]));
+    setShowSortMenu(false);
+  };
+
+  // 2) Sort by combo potential: cards that can form combos are grouped together
+  const sortHandByCombo = () => {
+    playIf(audioObj.current, () => AudioFX.click());
+    setPlayerHand(prev => {
+      const hand = [...prev];
+      // For each card, count how many combos it can form with other cards in hand
+      const comboCounts: Record<string, number> = {};
+      const cardIds = hand.map(c => c.id);
+      for (const card of hand) {
+        let count = 0;
+        for (const combo of CARD_COMBOS) {
+          if (combo.cardIds.includes(card.id)) {
+            // Check if hand has at least 2 cards from this combo (including current)
+            const haveInHand = combo.cardIds.filter(id => cardIds.includes(id)).length;
+            if (haveInHand >= 2) count++;
+          }
+        }
+        comboCounts[card.id] = count;
+      }
+      // Sort: combo cards first (by combo count desc), then by era, then by name
+      return hand.sort((a, b) => {
+        const comboDiff = (comboCounts[b.id] || 0) - (comboCounts[a.id] || 0);
+        if (comboDiff !== 0) return comboDiff;
+        if (a.era !== b.era) return a.era.localeCompare(b.era);
+        return a.name.localeCompare(b.name);
+      });
+    });
+    setShowSortMenu(false);
+  };
+
   const getAttrIcon = (attr: Attribute) => {
     switch (attr) {
       case 'political': return <Crown size={22} />;
@@ -945,16 +996,17 @@ export default function App() {
               </div>
             )}
 
-            {/* Action buttons */}
+            {/* Action buttons: win=steal only, lose=continue only */}
             <div className="flex gap-3 justify-center">
-              {playerScore > aiScore && aiHand.length > 0 && (
+              {playerScore > aiScore && aiHand.length > 0 ? (
                 <button onClick={stealCard}
-                  className="px-6 py-3 bg-gradient-to-r from-purple-800 to-purple-700 border border-purple-500/50 rounded-xl text-white font-bold hover:from-purple-700 hover:to-purple-600 transition-all"
+                  className="px-8 py-3 bg-gradient-to-r from-purple-800 to-purple-700 border border-purple-500/50 rounded-xl text-white font-bold hover:from-purple-700 hover:to-purple-600 transition-all"
                   style={{ fontFamily: 'var(--font-body)' }}>夺取一张 AI 卡牌</button>
+              ) : (
+                <button onClick={() => nextRoundRef.current()}
+                  className="px-8 py-3 bg-gradient-to-r from-yellow-800 to-yellow-700 border border-yellow-500/50 rounded-xl text-white font-bold hover:from-yellow-700 hover:to-yellow-600 transition-all"
+                  style={{ fontFamily: 'var(--font-body)' }}>继续</button>
               )}
-              <button onClick={() => nextRoundRef.current()}
-                className="px-8 py-3 bg-gradient-to-r from-yellow-800 to-yellow-700 border border-yellow-500/50 rounded-xl text-white font-bold hover:from-yellow-700 hover:to-yellow-600 transition-all"
-                style={{ fontFamily: 'var(--font-body)' }}>继续</button>
             </div>
           </div>
         </div>
@@ -1279,7 +1331,7 @@ export default function App() {
           )}
           {gamePhase === 'playerTurn' && !isSwapping && selectedCards.length === 0 && (
             <>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 relative">
                 {swapCount > 0 && (
                   <button onClick={() => { playIf(audioObj.current, () => AudioFX.click()); setIsSwapping(true); setSelectedCards([]); setShowComboPreview(false); }}
                     className="px-4 py-2 bg-gradient-to-r from-blue-800 to-blue-700 border border-blue-400/50 rounded-xl text-blue-100 font-bold hover:from-blue-700 hover:to-blue-600 transition-all hover:scale-105 text-sm flex items-center gap-1.5"
@@ -1296,6 +1348,31 @@ export default function App() {
                 ) : (
                   <div className="text-gray-500 text-xs px-2" style={{ fontFamily: 'var(--font-body)' }}>重抽次数已用完</div>
                 )}
+                {/* 整理按钮 */}
+                <div className="relative">
+                  <button onClick={() => { playIf(audioObj.current, () => AudioFX.click()); setShowSortMenu(v => !v); }}
+                    className="px-4 py-2 bg-gradient-to-r from-orange-800 to-orange-700 border border-orange-400/50 rounded-xl text-orange-100 font-bold hover:from-orange-700 hover:to-orange-600 transition-all hover:scale-105 text-sm flex items-center gap-1.5"
+                    style={{ fontFamily: 'var(--font-body)' }}>
+                    <Layers size={14} /> 整理
+                  </button>
+                  {/* 整理选项菜单 */}
+                  {showSortMenu && (
+                    <div className="absolute bottom-full left-0 mb-2 w-44 bg-gray-900 border border-orange-500/40 rounded-xl shadow-2xl z-50 overflow-hidden">
+                      <button onClick={() => sortHandByScore()}
+                        className="w-full px-4 py-2.5 text-left text-sm text-orange-100 hover:bg-orange-800/40 transition-all border-b border-orange-500/20 flex items-center gap-2"
+                        style={{ fontFamily: 'var(--font-body)' }}>
+                        <ChevronRight size={14} className="text-orange-400" />
+                        {currentAttribute ? `按「${ATTRIBUTE_NAMES[currentAttribute]}」排序` : '按指标排序'}
+                      </button>
+                      <button onClick={() => sortHandByCombo()}
+                        className="w-full px-4 py-2.5 text-left text-sm text-orange-100 hover:bg-orange-800/40 transition-all flex items-center gap-2"
+                        style={{ fontFamily: 'var(--font-body)' }}>
+                        <ChevronRight size={14} className="text-orange-400" />
+                        按组合排序
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
             </>
           )}
@@ -1396,12 +1473,48 @@ export default function App() {
               {matchResult === 'win' ? `以 ${playerWins} 比 ${aiWins} 赢得了这场对弈！` : `以 ${playerWins} 比 ${aiWins} 惜败。不要气馁，再试一次！`}
             </p>
             <div className="flex gap-3">
-              <button onClick={() => { playIf(audioObj.current, () => AudioFX.click()); currentLevel && startGame(currentLevel); }}
-                className="flex-1 py-3.5 bg-gradient-to-r from-yellow-800 to-yellow-700 border border-yellow-500/50 rounded-xl text-white font-bold hover:from-yellow-700 hover:to-yellow-600 transition-all"
-                style={{ fontFamily: 'var(--font-body)' }}>再来一局</button>
-              <button onClick={() => { playIf(audioObj.current, () => AudioFX.click()); setScreen('levelSelect'); }}
-                className="flex-1 py-3.5 bg-gradient-to-r from-gray-700 to-gray-600 border border-gray-500/50 rounded-xl text-white font-bold hover:from-gray-600 hover:to-gray-500 transition-all"
-                style={{ fontFamily: 'var(--font-body)' }}>返回</button>
+              {matchResult === 'win' ? (
+                <>
+                  {/* Victory: check if next level is unlocked */}
+                  {(() => {
+                    const nextLevelId = (currentLevel?.id || 0) + 1;
+                    const nextLevel = LEVEL_CONFIGS.find(l => l.id === nextLevelId);
+                    const isNextUnlocked = nextLevel ? saveData.unlockedLevels.includes(nextLevelId) : false;
+                    return (
+                      <>
+                        <button onClick={() => { playIf(audioObj.current, () => AudioFX.click()); setScreen('levelSelect'); }}
+                          className="flex-1 py-3.5 bg-gradient-to-r from-gray-700 to-gray-600 border border-gray-500/50 rounded-xl text-white font-bold hover:from-gray-600 hover:to-gray-500 transition-all"
+                          style={{ fontFamily: 'var(--font-body)' }}>返回选关</button>
+                        {nextLevel && isNextUnlocked ? (
+                          <button onClick={() => { playIf(audioObj.current, () => AudioFX.click()); startGame(nextLevel); }}
+                            className="flex-1 py-3.5 bg-gradient-to-r from-yellow-800 to-yellow-700 border border-yellow-500/50 rounded-xl text-white font-bold hover:from-yellow-700 hover:to-yellow-600 transition-all"
+                            style={{ fontFamily: 'var(--font-body)' }}>
+                            <ChevronRight size={18} className="inline mr-1" />进入下一关
+                          </button>
+                        ) : nextLevel ? (
+                          <button onClick={() => { playIf(audioObj.current, () => AudioFX.click()); currentLevel && startGame(currentLevel); }}
+                            className="flex-1 py-3.5 bg-gradient-to-r from-blue-800 to-blue-700 border border-blue-500/50 rounded-xl text-white font-bold hover:from-blue-700 hover:to-blue-600 transition-all"
+                            style={{ fontFamily: 'var(--font-body)' }}>继续挑战</button>
+                        ) : (
+                          <button onClick={() => { playIf(audioObj.current, () => AudioFX.click()); currentLevel && startGame(currentLevel); }}
+                            className="flex-1 py-3.5 bg-gradient-to-r from-yellow-800 to-yellow-700 border border-yellow-500/50 rounded-xl text-white font-bold hover:from-yellow-700 hover:to-yellow-600 transition-all"
+                            style={{ fontFamily: 'var(--font-body)' }}>再来一局</button>
+                        )}
+                      </>
+                    );
+                  })()}
+                </>
+              ) : (
+                <>
+                  {/* Defeat */}
+                  <button onClick={() => { playIf(audioObj.current, () => AudioFX.click()); currentLevel && startGame(currentLevel); }}
+                    className="flex-1 py-3.5 bg-gradient-to-r from-yellow-800 to-yellow-700 border border-yellow-500/50 rounded-xl text-white font-bold hover:from-yellow-700 hover:to-yellow-600 transition-all"
+                    style={{ fontFamily: 'var(--font-body)' }}>再来一局</button>
+                  <button onClick={() => { playIf(audioObj.current, () => AudioFX.click()); setScreen('levelSelect'); }}
+                    className="flex-1 py-3.5 bg-gradient-to-r from-gray-700 to-gray-600 border border-gray-500/50 rounded-xl text-white font-bold hover:from-gray-600 hover:to-gray-500 transition-all"
+                    style={{ fontFamily: 'var(--font-body)' }}>返回选关</button>
+                </>
+              )}
             </div>
           </div>
         </div>
