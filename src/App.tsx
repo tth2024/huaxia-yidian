@@ -5,6 +5,7 @@ import { ALL_CARDS } from './game/cardData';
 import { findMatchingCombo, getRandomHint, ANECDOTES, CARD_COMBOS } from './game/comboData';
 import { DeckManager, AIOpponent, calculateScore, rollDice, LEVEL_CONFIGS, loadSaveData, unlockLevel, addToCollection } from './game/gameLogic';
 import { getCardImage, getCardTypeColor } from './game/cardImages';
+import { getAssetPath } from './game/assetPath';
 import { AudioFX, BGM } from './game/audio';
 import { getTagline } from './game/taglines';
 import { getAnecdoteByComboName, getAnecdoteByCardName } from './game/anecdotesFull';
@@ -47,7 +48,7 @@ function CardDetailModal({ card, onClose }: { card: Card; onClose: () => void })
     <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-50 animate-fadeIn backdrop-blur-sm"
       onClick={onClose}>
       <div className="max-w-sm mx-4 p-6 border-2 rounded-2xl shadow-2xl relative overflow-hidden"
-        style={{ borderColor: getCardTypeColor(card.type) + '80', backgroundImage: 'url(/assets/backgrounds/card_texture.jpg)', backgroundSize: 'cover', backgroundPosition: 'center' }}
+        style={{ borderColor: getCardTypeColor(card.type) + '80', backgroundImage: `url(${getAssetPath('assets/backgrounds/card_texture.jpg')})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
         onClick={e => e.stopPropagation()}>
         <div className="absolute inset-0 z-0" style={{ background: 'rgba(15,8,3,0.7)' }} />
         <div className="relative z-10">
@@ -527,7 +528,7 @@ export default function App() {
   if (screen === 'menu') {
     return (
       <div className="relative w-full h-screen overflow-hidden select-none">
-        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: 'url(/assets/backgrounds/menu_bg.jpg)' }} />
+        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${getAssetPath('assets/backgrounds/menu_bg.jpg')})` }} />
         <div className="absolute inset-0 bg-black/50" />
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           {Array.from({ length: 20 }).map((_, i) => (
@@ -701,7 +702,7 @@ export default function App() {
                   onClick={() => isCollected && setDetailCard(card)}>
                   {isCollected ? (
                     <div className="w-full h-full flex flex-col items-center justify-center p-1 relative"
-                      style={{ backgroundImage: 'url(/assets/backgrounds/card_texture.jpg)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
+                      style={{ backgroundImage: `url(${getAssetPath('assets/backgrounds/card_texture.jpg')})`, backgroundSize: 'cover', backgroundPosition: 'center' }}>
                       <div className="absolute inset-0" style={{ background: 'rgba(20,10,5,0.55)' }} />
                       <div className="relative z-10 flex flex-col items-center w-full">
                         {img ? (
@@ -732,7 +733,7 @@ export default function App() {
   return (
     <div className="relative w-full h-screen overflow-hidden select-none">
       {/* Background */}
-      <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: 'url(/assets/backgrounds/battle_bg.jpg)' }} />
+      <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${getAssetPath('assets/backgrounds/battle_bg.jpg')})` }} />
       <div className="absolute inset-0 bg-black/60" />
       <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/50" />
 
@@ -756,7 +757,7 @@ export default function App() {
               {/* 卡牌 - 带旋转闪光 */}
               <div className="relative mb-6 animate-cardReveal">
                 <div className="absolute inset-0 rounded-xl animate-pulseGlow" style={{ boxShadow: '0 0 40px rgba(212,175,55,0.6), 0 0 80px rgba(212,175,55,0.3)' }} />
-                <div className="relative rounded-xl border-2 overflow-hidden flex flex-col" style={{ width: '180px', height: '252px', borderColor: getCardTypeColor(rewardCard.type) + '80', backgroundImage: 'url(/assets/backgrounds/card_texture.jpg)', backgroundSize: 'cover', boxShadow: '0 0 30px rgba(212,175,55,0.4)' }}>
+                <div className="relative rounded-xl border-2 overflow-hidden flex flex-col" style={{ width: '180px', height: '252px', borderColor: getCardTypeColor(rewardCard.type) + '80', backgroundImage: `url(${getAssetPath('assets/backgrounds/card_texture.jpg')})`, backgroundSize: 'cover', boxShadow: '0 0 30px rgba(212,175,55,0.4)' }}>
                   <div className="flex flex-col h-full" style={{ background: 'rgba(20,10,5,0.55)' }}>
                     <div className="flex justify-between items-center px-2 pt-2 pb-1 shrink-0">
                       <span className="text-[11px] px-1.5 py-0.5 rounded font-bold leading-none" style={{ color: getCardTypeColor(rewardCard.type), background: getCardTypeColor(rewardCard.type) + '20', fontFamily: 'var(--font-body)' }}>{rewardCard.type === 'character' ? '人物' : rewardCard.type === 'item' ? '物品' : rewardCard.type === 'scenario' ? '情景' : '事件'}</span>
@@ -799,7 +800,7 @@ export default function App() {
       {/* ===== ROUND RESULT FULLSCREEN PANEL ===== */}
       {gamePhase === 'roundEnd' && (playerScore > 0 || aiScore > 0) && (
         <div className="absolute inset-0 flex items-center justify-center z-50 animate-fadeIn">
-          <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: 'url(/assets/backgrounds/result_bg.jpg)' }} />
+          <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${getAssetPath('assets/backgrounds/result_bg.jpg')})` }} />
           <div className="absolute inset-0 bg-black/40" />
           <div className="relative w-full max-w-4xl mx-4 p-6 md:p-8 bg-gradient-to-b from-gray-900/95 to-gray-950/95 border-2 rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto"
             style={{ borderColor: playerScore > aiScore ? 'rgba(212,175,55,0.5)' : 'rgba(220,20,60,0.5)' }}>
@@ -1142,7 +1143,7 @@ export default function App() {
                   height: '210px', 
                   marginLeft: i === 0 ? 0 : '-26px', 
                   zIndex: (isSelected || isSwapTarget || comboHighlight[card.id]) ? 50 : i,
-                  backgroundImage: 'url(/assets/backgrounds/card_texture.jpg)',
+                  backgroundImage: `url(${getAssetPath('assets/backgrounds/card_texture.jpg')})`,
                   backgroundSize: 'cover',
                   backgroundPosition: 'center',
                   borderColor: comboHighlight[card.id] && !isSelected ? comboHighlight[card.id].color : undefined,
@@ -1334,15 +1335,15 @@ export default function App() {
       {/* Victory Reward Card */}
       {showReward && rewardCard && (
         <div className="absolute inset-0 flex items-center justify-center z-50 animate-fadeIn">
-          <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: 'url(/assets/backgrounds/result_bg.jpg)' }} />
+          <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${getAssetPath('assets/backgrounds/result_bg.jpg')})` }} />
           <div className="absolute inset-0 bg-black/50" />
           <div className="relative max-w-sm mx-4 p-6 border-2 rounded-2xl shadow-2xl text-center overflow-hidden"
-            style={{ borderColor: 'rgba(212,175,55,0.6)', backgroundImage: 'url(/assets/backgrounds/card_texture.jpg)', backgroundSize: 'cover' }}>
+            style={{ borderColor: 'rgba(212,175,55,0.6)', backgroundImage: `url(${getAssetPath('assets/backgrounds/card_texture.jpg')})`, backgroundSize: 'cover' }}>
             <div className="absolute inset-0" style={{ background: 'rgba(15,8,3,0.75)' }} />
             <div className="relative z-10">
               <div className="text-yellow-400 text-sm font-bold mb-2" style={{ fontFamily: 'var(--font-body)' }}>胜利奖励</div>
               <h3 className="text-2xl font-bold mb-3 text-yellow-300" style={{ fontFamily: 'var(--font-title)' }}>获得新卡牌</h3>
-              <div className="mx-auto mb-4 rounded-xl border-2 overflow-hidden flex flex-col" style={{ width: '150px', height: '210px', borderColor: getCardTypeColor(rewardCard.type) + '60', backgroundImage: 'url(/assets/backgrounds/card_texture.jpg)', backgroundSize: 'cover', boxShadow: '0 0 25px rgba(212,175,55,0.3)' }}>
+              <div className="mx-auto mb-4 rounded-xl border-2 overflow-hidden flex flex-col" style={{ width: '150px', height: '210px', borderColor: getCardTypeColor(rewardCard.type) + '60', backgroundImage: `url(${getAssetPath('assets/backgrounds/card_texture.jpg')})`, backgroundSize: 'cover', boxShadow: '0 0 25px rgba(212,175,55,0.3)' }}>
                 <div className="flex flex-col h-full" style={{ background: 'rgba(20,10,5,0.55)' }}>
                   <div className="flex justify-between items-center px-2 pt-2 pb-1 shrink-0">
                     <span className="text-[11px] px-1.5 py-0.5 rounded font-bold leading-none" style={{ color: getCardTypeColor(rewardCard.type), background: getCardTypeColor(rewardCard.type) + '20', fontFamily: 'var(--font-body)' }}>{rewardCard.type === 'character' ? '人物' : rewardCard.type === 'item' ? '物品' : rewardCard.type === 'scenario' ? '情景' : '事件'}</span>
@@ -1381,7 +1382,7 @@ export default function App() {
       {/* Match End */}
       {matchResult && !showReward && (
         <div className="absolute inset-0 flex items-center justify-center z-50 animate-fadeIn">
-          <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: 'url(/assets/backgrounds/result_bg.jpg)' }} />
+          <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${getAssetPath('assets/backgrounds/result_bg.jpg')})` }} />
           <div className="absolute inset-0 bg-black/40" />
           <div className="relative max-w-sm mx-4 p-8 bg-gradient-to-b from-gray-900/95 to-black/95 border-2 rounded-2xl shadow-2xl text-center"
             style={{ borderColor: matchResult === 'win' ? 'rgba(212,175,55,0.6)' : 'rgba(220,20,60,0.6)' }}>

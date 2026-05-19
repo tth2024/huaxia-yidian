@@ -1,8 +1,10 @@
 // ===== 游戏音效系统 =====
+import { getAssetPath } from './assetPath';
 
 const audioCache: Record<string, HTMLAudioElement> = {};
 
-function getAudio(path: string): HTMLAudioElement {
+function getAudio(name: string): HTMLAudioElement {
+  const path = getAssetPath(`assets/audio/${name}.mp3`);
   if (!audioCache[path]) {
     audioCache[path] = new Audio(path);
   }
@@ -11,7 +13,7 @@ function getAudio(path: string): HTMLAudioElement {
 
 export function playSound(name: string, volume = 0.6) {
   try {
-    const audio = getAudio(`/assets/audio/${name}.mp3`);
+    const audio = getAudio(name);
     audio.volume = volume;
     audio.currentTime = 0;
     audio.play().catch(() => {});
@@ -30,7 +32,7 @@ export function playBGM(name: string, volume = 0.25) {
       currentBgm.pause();
       currentBgm.currentTime = 0;
     }
-    const audio = new Audio(`/assets/audio/${name}.mp3`);
+    const audio = new Audio(getAssetPath(`assets/audio/${name}.mp3`));
     audio.volume = volume;
     audio.loop = true;
     audio.play().catch(() => {});
@@ -52,7 +54,7 @@ export function stopBGM() {
 export function preloadSounds() {
   const sounds = ['hover', 'click', 'dice', 'play', 'combo', 'win', 'lose', 'victory', 'deal', 'hint'];
   sounds.forEach(name => {
-    const audio = new Audio(`/assets/audio/${name}.mp3`);
+    const audio = new Audio(getAssetPath(`assets/audio/${name}.mp3`));
     audio.preload = 'auto';
     audioCache[name] = audio;
   });

@@ -1,5 +1,6 @@
 // ===== 卡牌图片映射 =====
 // 将卡牌ID映射到对应的图片路径
+import { getAssetPath } from './assetPath';
 
 const CARD_IMAGE_MAP: Record<string, string> = {
   // 人物卡
@@ -29,7 +30,8 @@ const CARD_IMAGE_MAP: Record<string, string> = {
 };
 
 export function getCardImage(cardId: string): string | undefined {
-  return CARD_IMAGE_MAP[cardId];
+  const path = CARD_IMAGE_MAP[cardId];
+  return path ? getAssetPath(path) : undefined;
 }
 
 // 根据卡牌类型和时代获取备用颜色/渐变
