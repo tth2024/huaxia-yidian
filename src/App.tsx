@@ -6,9 +6,10 @@ import { findMatchingCombo, getRandomHint, ANECDOTES, CARD_COMBOS } from './game
 import { DeckManager, AIOpponent, calculateScore, rollDice, LEVEL_CONFIGS, loadSaveData, unlockLevel, addToCollection } from './game/gameLogic';
 import { getCardImage, getCardTypeColor } from './game/cardImages';
 import { getAssetPath } from './game/assetPath';
+import { preloadLevelCards } from './game/imageCache';
 import { AudioFX, BGM } from './game/audio';
 import { getTagline } from './game/taglines';
-import { getAnecdoteByComboName, getAnecdoteByCardName } from './game/anecdotesFull';
+import { getAnecdoteByComboName } from './game/anecdotesFull';
 import { getCardDetailById } from './game/cardDetails';
 import { Swords, Scroll, Settings, BookOpen, Trophy, ChevronRight, Volume2, VolumeX, HelpCircle, Sparkles, Shield, Coins, Crown, FlaskConical, X, Info, Layers, Shuffle } from 'lucide-react';
 import './App.css';
@@ -261,6 +262,11 @@ export default function App() {
     setPlayerScore(0);
     setAiScore(0);
     resolveRef.current = { playerPlayed: [], activeCombo: null };
+    
+    // 预加载当前关卡卡牌图片（优先手牌）
+    const allPoolIds = pool.map(c => c.id);
+    preloadLevelCards(allPoolIds, getCardImage).catch(() => {});
+    
     setGamePhase('dice');
     setSwapCount(3);
     setRedrawCount(3);
@@ -848,137 +854,183 @@ export default function App() {
         </div>
       )}
 
-      {/* ===== ROUND RESULT FULLSCREEN PANEL ===== */}
+      {/* ===== ROUND RESULT FULLSCREEN PANEL - Scroll Unroll ===== */}
       {gamePhase === 'roundEnd' && (playerScore > 0 || aiScore > 0) && (
         <div className="absolute inset-0 flex items-center justify-center z-50 animate-fadeIn">
           <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${getAssetPath('assets/backgrounds/result_bg.jpg')})` }} />
-          <div className="absolute inset-0 bg-black/40" />
-          <div className="relative w-full max-w-4xl mx-4 p-6 md:p-8 bg-gradient-to-b from-gray-900/95 to-gray-950/95 border-2 rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto"
-            style={{ borderColor: playerScore > aiScore ? 'rgba(212,175,55,0.5)' : 'rgba(220,20,60,0.5)' }}>
+          <div className="absolute inset-0 bg-black/75" />
 
-            {/* Title */}
-            <div className="text-center mb-6">
-              <div className={`text-3xl md:text-4xl font-bold mb-2 ${playerScore > aiScore ? 'text-yellow-400' : 'text-red-400'}`}
-                style={{ fontFamily: 'var(--font-title)' }}>
-                {playerScore > aiScore ? '回合胜利' : '回合失败'}
-              </div>
-              <div className="text-gray-400 text-sm" style={{ fontFamily: 'var(--font-body)' }}>
-                比拼指标：{currentAttribute ? ATTRIBUTE_NAMES[currentAttribute] : '-'} · 第 {round} 回合
-              </div>
-            </div>
+          {/* Scroll Container */}
+          <div className="relative w-full max-w-4xl mx-4 animate-scrollUnroll">
+            {/* Top Scroll Rod */}
+            <div className="scroll-rod h-4 w-full rounded-sm z-10" />
 
-            {/* Score Big Display */}
-            <div className="flex items-center justify-center gap-6 md:gap-12 mb-8">
-              <div className="flex flex-col items-center">
-                <div className="text-yellow-500 text-sm font-bold mb-1" style={{ fontFamily: 'var(--font-body)' }}>玩家</div>
-                <div className="text-5xl md:text-7xl font-bold text-yellow-400 animate-scorePop" style={{ fontFamily: 'var(--font-title)' }}>{playerScore}</div>
-              </div>
-              <div className="text-3xl md:text-5xl font-bold text-gray-600" style={{ fontFamily: 'var(--font-title)' }}>VS</div>
-              <div className="flex flex-col items-center">
-                <div className="text-red-400 text-sm font-bold mb-1" style={{ fontFamily: 'var(--font-body)' }}>AI</div>
-                <div className="text-5xl md:text-7xl font-bold text-red-400 animate-scorePop" style={{ fontFamily: 'var(--font-title)' }}>{aiScore}</div>
-              </div>
-            </div>
+            {/* Scroll Paper Body - opaque background with prominent borders */}
+            <div className="scroll-paper bg-gradient-to-b from-[#1a1510] via-[#1f1a14] to-[#1a1510] p-6 md:p-8 max-h-[80vh] overflow-y-auto"
+              style={{
+                borderLeft: '12px solid transparent',
+                borderRight: '12px solid transparent',
+                borderImage: `linear-gradient(to bottom, #2a1f0f 0%, #d4af37 20%, #8b6914 50%, #d4af37 80%, #2a1f0f 100%) 1 100%`,
+                boxShadow: 'inset 6px 0 12px rgba(0,0,0,0.6), inset -6px 0 12px rgba(0,0,0,0.6), 0 0 30px rgba(0,0,0,0.5)'
+              }}>
 
-            {/* Cards Comparison */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-6">
-              {/* Player Side */}
-              <div className="p-4 rounded-xl border border-yellow-700/30 bg-gradient-to-b from-yellow-950/30 to-transparent">
-                <div className="text-yellow-400 font-bold text-sm mb-3 flex items-center gap-2" style={{ fontFamily: 'var(--font-body)' }}>
-                  <Crown size={16} /> 我方出牌
+              {/* Decorative corners - ornate gold */}
+              <div className="absolute top-3 left-3 w-10 h-10 border-l-[3px] border-t-[3px] border-amber-600/60 rounded-tl-sm" />
+              <div className="absolute top-3 right-3 w-10 h-10 border-r-[3px] border-t-[3px] border-amber-600/60 rounded-tr-sm" />
+              <div className="absolute bottom-3 left-3 w-10 h-10 border-l-[3px] border-b-[3px] border-amber-600/60 rounded-bl-sm" />
+              <div className="absolute bottom-3 right-3 w-10 h-10 border-r-[3px] border-b-[3px] border-amber-600/60 rounded-br-sm" />
+              {/* Inner decorative frame */}
+              <div className="absolute top-6 left-6 right-6 bottom-6 border border-amber-800/20 rounded pointer-events-none" />
+
+              {/* Title */}
+              <div className="text-center mb-6">
+                <div className={`text-3xl md:text-4xl font-bold mb-2 ${playerScore > aiScore ? 'text-yellow-400' : 'text-red-400'}`}
+                  style={{ fontFamily: 'var(--font-title)' }}>
+                  {playerScore > aiScore ? '回合胜利' : '回合失败'}
                 </div>
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {playerPlayed.map((card, i) => (
-                    <div key={i} className="w-16 h-24 rounded-lg border border-yellow-600/40 bg-gray-900 flex flex-col items-center justify-center p-1">
-                      <span className="text-[10px] text-yellow-300 font-bold text-center" style={{ fontFamily: 'var(--font-body)' }}>{card.name}</span>
-                      {currentAttribute && (
-                        <span className="text-xs font-bold mt-1" style={{ color: ATTRIBUTE_COLORS[currentAttribute], fontFamily: 'var(--font-title)' }}>
-                          {card.attributes[currentAttribute]}点
-                        </span>
-                      )}
-                    </div>
-                  ))}
+                <div className="text-amber-200/60 text-sm" style={{ fontFamily: 'var(--font-body)' }}>
+                  比拼指标：{currentAttribute ? ATTRIBUTE_NAMES[currentAttribute] : '-'} · 第 {round} 回合
                 </div>
-                {activeCombo && (
-                  <div className="p-3 rounded-lg bg-yellow-900/30 border border-yellow-600/30">
-                    <div className="text-yellow-300 font-bold text-sm" style={{ fontFamily: 'var(--font-title)' }}>{activeCombo.name}</div>
-                    <div className="text-yellow-200/60 text-xs mt-1" style={{ fontFamily: 'var(--font-body)' }}>{activeCombo.description}</div>
-                    {/* Full anecdote text */}
-                    <div className="text-gray-300 text-xs mt-2 leading-relaxed border-t border-yellow-700/20 pt-2" style={{ fontFamily: 'var(--font-body)' }}>
-                      {getAnecdoteByComboName(activeCombo.name) || (ANECDOTES[activeCombo.id] ? (playerScore > aiScore ? ANECDOTES[activeCombo.id].winText : ANECDOTES[activeCombo.id].loseText) : '')}
-                    </div>
+              </div>
+
+              {/* Score Big Display */}
+              <div className="flex items-center justify-center gap-6 md:gap-12 mb-8">
+                <div className="flex flex-col items-center">
+                  <div className="text-yellow-500 text-sm font-bold mb-1" style={{ fontFamily: 'var(--font-body)' }}>玩家</div>
+                  <div className="text-5xl md:text-7xl font-bold text-yellow-400 animate-scorePop" style={{ fontFamily: 'var(--font-title)' }}>{playerScore}</div>
+                </div>
+                <div className="text-3xl md:text-5xl font-bold text-gray-500" style={{ fontFamily: 'var(--font-title)' }}>VS</div>
+                <div className="flex flex-col items-center">
+                  <div className="text-red-400 text-sm font-bold mb-1" style={{ fontFamily: 'var(--font-body)' }}>AI</div>
+                  <div className="text-5xl md:text-7xl font-bold text-red-400 animate-scorePop" style={{ fontFamily: 'var(--font-title)' }}>{aiScore}</div>
+                </div>
+              </div>
+
+              {/* Cards Comparison */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-6">
+                {/* Player Side */}
+                <div className="p-4 rounded-xl border border-yellow-700/30 bg-gradient-to-b from-yellow-950/40 to-yellow-950/20">
+                  <div className="text-yellow-400 font-bold text-sm mb-3 flex items-center gap-2" style={{ fontFamily: 'var(--font-body)' }}>
+                    <Crown size={16} /> 我方出牌
                   </div>
-                )}
-                {/* Single card detailed descriptions */}
-                {!activeCombo && playerPlayed.length > 0 && (
-                  <div className="space-y-2">
-                    {playerPlayed.map((card, idx) => {
-                      const detailText = getCardDetailById(card.id);
-                      const cardAnecdote = getAnecdoteByCardName(card.name);
-                      return detailText || cardAnecdote ? (
-                        <div key={idx} className="p-2 rounded-lg bg-yellow-900/20 border border-yellow-700/20">
-                          <div className="text-yellow-400 text-xs font-bold" style={{ fontFamily: 'var(--font-body)' }}>{card.name}</div>
-                          {detailText && (
-                            <div className="text-gray-300/80 text-xs leading-relaxed mt-0.5" style={{ fontFamily: 'var(--font-body)' }}>{detailText}</div>
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {playerPlayed.map((card, i) => {
+                      const cardImg = getCardImage(card.id);
+                      return (
+                        <div key={i} className="w-16 h-24 rounded-lg border border-yellow-600/40 bg-gray-900 relative overflow-hidden"
+                          style={{ backgroundImage: cardImg ? `url(${cardImg})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center top' }}>
+                          {!cardImg && (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <span className="text-[10px] text-yellow-300 font-bold text-center" style={{ fontFamily: 'var(--font-body)' }}>{card.name}</span>
+                            </div>
                           )}
-                          {!detailText && cardAnecdote && (
-                            <div className="text-gray-300/80 text-xs leading-relaxed mt-0.5" style={{ fontFamily: 'var(--font-body)' }}>{cardAnecdote}</div>
-                          )}
-                        </div>
-                      ) : null;
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* AI Side */}
-              <div className="p-4 rounded-xl border border-red-700/30 bg-gradient-to-b from-red-950/30 to-transparent">
-                <div className="text-red-400 font-bold text-sm mb-3 flex items-center gap-2" style={{ fontFamily: 'var(--font-body)' }}>
-                  <Shield size={16} /> AI出牌
-                </div>
-                <div className="flex flex-wrap gap-2 mb-3">
-                  {aiPlayed.map((card, i) => (
-                    <div key={i} className="w-16 h-24 rounded-lg border border-red-600/40 bg-gray-900 flex flex-col items-center justify-center p-1">
-                      <span className="text-[10px] text-red-300 font-bold text-center" style={{ fontFamily: 'var(--font-body)' }}>{card.name}</span>
-                      {currentAttribute && (
-                        <span className="text-xs font-bold mt-1" style={{ color: ATTRIBUTE_COLORS[currentAttribute], fontFamily: 'var(--font-title)' }}>
-                          {card.attributes[currentAttribute]}点
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                {aiActiveCombo && (
-                  <div className="p-3 rounded-lg bg-red-900/30 border border-red-600/30">
-                    <div className="text-red-300 font-bold text-sm" style={{ fontFamily: 'var(--font-title)' }}>{aiActiveCombo.name}</div>
-                    <div className="text-red-200/60 text-xs mt-1" style={{ fontFamily: 'var(--font-body)' }}>{aiActiveCombo.description}</div>
-                    <div className="text-gray-300 text-xs mt-2 leading-relaxed border-t border-red-700/20 pt-2" style={{ fontFamily: 'var(--font-body)' }}>
-                      {getAnecdoteByComboName(aiActiveCombo.name) || (ANECDOTES[aiActiveCombo.id] ? (playerScore <= aiScore ? ANECDOTES[aiActiveCombo.id].winText : ANECDOTES[aiActiveCombo.id].loseText) : '')}
-                    </div>
-                  </div>
-                )}
-                {/* AI single card detailed descriptions */}
-                {!aiActiveCombo && aiPlayed.length > 0 && (
-                  <div className="space-y-2">
-                    {aiPlayed.map((card, idx) => {
-                      const detailText = getCardDetailById(card.id);
-                      const cardAnecdote = getAnecdoteByCardName(card.name);
-                      return detailText || cardAnecdote ? (
-                        <div key={idx} className="p-2 rounded-lg bg-red-900/20 border border-red-700/20">
-                          <div className="text-red-400 text-xs font-bold" style={{ fontFamily: 'var(--font-body)' }}>{card.name}</div>
-                          {detailText && (
-                            <div className="text-gray-300/80 text-xs leading-relaxed mt-0.5" style={{ fontFamily: 'var(--font-body)' }}>{detailText}</div>
-                          )}
-                          {!detailText && cardAnecdote && (
-                            <div className="text-gray-300/80 text-xs leading-relaxed mt-0.5" style={{ fontFamily: 'var(--font-body)' }}>{cardAnecdote}</div>
+                          {/* Bottom gradient overlay for text */}
+                          {cardImg && (
+                            <>
+                              <div className="absolute bottom-0 left-0 right-0 h-10 card-bottom-text" />
+                              <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center pb-1 z-10">
+                                <span className="text-[8px] text-white font-bold text-center leading-tight px-0.5" style={{ fontFamily: 'var(--font-body)', textShadow: '0 1px 2px rgba(0,0,0,1)' }}>{card.name}</span>
+                                {currentAttribute && (
+                                  <span className="text-[9px] font-bold leading-tight" style={{ color: ATTRIBUTE_COLORS[currentAttribute], fontFamily: 'var(--font-title)', textShadow: '0 1px 2px rgba(0,0,0,1)' }}>
+                                    {card.attributes[currentAttribute]}点
+                                  </span>
+                                )}
+                              </div>
+                            </>
                           )}
                         </div>
-                      ) : null;
+                      );
                     })}
                   </div>
-                )}
+                  {activeCombo && (
+                    <div className="p-3 rounded-lg bg-yellow-900/30 border border-yellow-600/30">
+                      <div className="text-yellow-300 font-bold text-sm" style={{ fontFamily: 'var(--font-title)' }}>{activeCombo.name}</div>
+                      <div className="text-yellow-200/60 text-xs mt-1" style={{ fontFamily: 'var(--font-body)' }}>{activeCombo.description}</div>
+                      {/* Full anecdote text */}
+                      <div className="text-gray-300 text-xs mt-2 leading-relaxed border-t border-yellow-700/20 pt-2" style={{ fontFamily: 'var(--font-body)' }}>
+                        {getAnecdoteByComboName(activeCombo.name) || (ANECDOTES[activeCombo.id] ? (playerScore > aiScore ? ANECDOTES[activeCombo.id].winText : ANECDOTES[activeCombo.id].loseText) : '')}
+                      </div>
+                    </div>
+                  )}
+                  {/* Single card detailed descriptions */}
+                  {!activeCombo && playerPlayed.length > 0 && (
+                    <div className="space-y-2">
+                      {playerPlayed.map((card, idx) => {
+                        const detailText = getCardDetailById(card.id);
+                        return detailText ? (
+                          <div key={idx} className="p-2 rounded-lg bg-yellow-900/20 border border-yellow-700/20">
+                            <div className="text-yellow-400 text-xs font-bold" style={{ fontFamily: 'var(--font-body)' }}>{card.name}</div>
+                            {detailText && (
+                              <div className="text-gray-300/80 text-xs leading-relaxed mt-0.5" style={{ fontFamily: 'var(--font-body)' }}>{detailText}</div>
+                            )}
+                          </div>
+                        ) : null;
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* AI Side */}
+                <div className="p-4 rounded-xl border border-red-700/30 bg-gradient-to-b from-red-950/40 to-red-950/20">
+                  <div className="text-red-400 font-bold text-sm mb-3 flex items-center gap-2" style={{ fontFamily: 'var(--font-body)' }}>
+                    <Shield size={16} /> AI出牌
+                  </div>
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {aiPlayed.map((card, i) => {
+                      const cardImg = getCardImage(card.id);
+                      return (
+                        <div key={i} className="w-16 h-24 rounded-lg border border-red-600/40 bg-gray-900 relative overflow-hidden"
+                          style={{ backgroundImage: cardImg ? `url(${cardImg})` : 'none', backgroundSize: 'cover', backgroundPosition: 'center top' }}>
+                          {!cardImg && (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <span className="text-[10px] text-red-300 font-bold text-center" style={{ fontFamily: 'var(--font-body)' }}>{card.name}</span>
+                            </div>
+                          )}
+                          {/* Bottom gradient overlay for text */}
+                          {cardImg && (
+                            <>
+                              <div className="absolute bottom-0 left-0 right-0 h-10 card-bottom-text" />
+                              <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center pb-1 z-10">
+                                <span className="text-[8px] text-white font-bold text-center leading-tight px-0.5" style={{ fontFamily: 'var(--font-body)', textShadow: '0 1px 2px rgba(0,0,0,1)' }}>{card.name}</span>
+                                {currentAttribute && (
+                                  <span className="text-[9px] font-bold leading-tight" style={{ color: ATTRIBUTE_COLORS[currentAttribute], fontFamily: 'var(--font-title)', textShadow: '0 1px 2px rgba(0,0,0,1)' }}>
+                                    {card.attributes[currentAttribute]}点
+                                  </span>
+                                )}
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {aiActiveCombo && (
+                    <div className="p-3 rounded-lg bg-red-900/30 border border-red-600/30">
+                      <div className="text-red-300 font-bold text-sm" style={{ fontFamily: 'var(--font-title)' }}>{aiActiveCombo.name}</div>
+                      <div className="text-red-200/60 text-xs mt-1" style={{ fontFamily: 'var(--font-body)' }}>{aiActiveCombo.description}</div>
+                      <div className="text-gray-300 text-xs mt-2 leading-relaxed border-t border-red-700/20 pt-2" style={{ fontFamily: 'var(--font-body)' }}>
+                        {getAnecdoteByComboName(aiActiveCombo.name) || (ANECDOTES[aiActiveCombo.id] ? (playerScore <= aiScore ? ANECDOTES[aiActiveCombo.id].winText : ANECDOTES[aiActiveCombo.id].loseText) : '')}
+                      </div>
+                    </div>
+                  )}
+                  {/* AI single card detailed descriptions */}
+                  {!aiActiveCombo && aiPlayed.length > 0 && (
+                    <div className="space-y-2">
+                      {aiPlayed.map((card, idx) => {
+                        const detailText = getCardDetailById(card.id);
+                        return detailText ? (
+                          <div key={idx} className="p-2 rounded-lg bg-red-900/20 border border-red-700/20">
+                            <div className="text-red-400 text-xs font-bold" style={{ fontFamily: 'var(--font-body)' }}>{card.name}</div>
+                            {detailText && (
+                              <div className="text-gray-300/80 text-xs leading-relaxed mt-0.5" style={{ fontFamily: 'var(--font-body)' }}>{detailText}</div>
+                            )}
+                          </div>
+                        ) : null;
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
 
             {/* Anecdote text */}
             <div className="text-center mb-4">
@@ -997,7 +1049,7 @@ export default function App() {
             )}
 
             {/* Action buttons: win=steal only, lose=continue only */}
-            <div className="flex gap-3 justify-center">
+            <div className="flex gap-3 justify-center pt-4 border-t border-amber-700/20">
               {playerScore > aiScore && aiHand.length > 0 ? (
                 <button onClick={stealCard}
                   className="px-8 py-3 bg-gradient-to-r from-purple-800 to-purple-700 border border-purple-500/50 rounded-xl text-white font-bold hover:from-purple-700 hover:to-purple-600 transition-all"
@@ -1008,6 +1060,10 @@ export default function App() {
                   style={{ fontFamily: 'var(--font-body)' }}>继续</button>
               )}
             </div>
+
+            </div>
+            {/* Bottom Scroll Rod */}
+            <div className="scroll-rod h-4 w-full rounded-sm z-10" />
           </div>
         </div>
       )}
@@ -1475,11 +1531,19 @@ export default function App() {
             <div className="flex gap-3">
               {matchResult === 'win' ? (
                 <>
-                  {/* Victory: check if next level is unlocked */}
+                  {/* Victory: check if next level is unlocked - always unlock on first win */}
                   {(() => {
                     const nextLevelId = (currentLevel?.id || 0) + 1;
                     const nextLevel = LEVEL_CONFIGS.find(l => l.id === nextLevelId);
-                    const isNextUnlocked = nextLevel ? saveData.unlockedLevels.includes(nextLevelId) : false;
+                    // Always unlock next level on victory (one win unlocks)
+                    const freshSave = loadSaveData();
+                    if (nextLevel && !freshSave.unlockedLevels.includes(nextLevelId)) {
+                      freshSave.unlockedLevels.push(nextLevelId);
+                      freshSave.unlockedLevels = [...new Set(freshSave.unlockedLevels)].sort((a,b) => a-b);
+                      localStorage.setItem('cultural_heritage_save', JSON.stringify(freshSave));
+                      setSaveData(freshSave);
+                    }
+                    const isNextUnlocked = nextLevel ? freshSave.unlockedLevels.includes(nextLevelId) : false;
                     return (
                       <>
                         <button onClick={() => { playIf(audioObj.current, () => AudioFX.click()); setScreen('levelSelect'); }}

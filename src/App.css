@@ -129,6 +129,70 @@ body {
   text-shadow: 0 0 30px rgba(212,175,55,0.4), 0 2px 4px rgba(0,0,0,0.8);
 }
 
+/* ===== Scroll Unroll Animation (画卷展开) ===== */
+@keyframes scrollUnroll {
+  0% {
+    opacity: 0;
+    transform: scaleY(0.05) scaleX(0.3);
+    clip-path: inset(48% 35% 48% 35%);
+  }
+  40% {
+    opacity: 1;
+    transform: scaleY(0.1) scaleX(0.6);
+    clip-path: inset(45% 20% 45% 20%);
+  }
+  70% {
+    transform: scaleY(0.6) scaleX(0.9);
+    clip-path: inset(20% 5% 20% 5%);
+  }
+  100% {
+    opacity: 1;
+    transform: scaleY(1) scaleX(1);
+    clip-path: inset(0% 0% 0% 0%);
+  }
+}
+
+.animate-scrollUnroll {
+  animation: scrollUnroll 0.7s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+  transform-origin: center center;
+}
+
+/* ===== Scroll Rod (卷轴轴头) ===== */
+.scroll-rod {
+  background: linear-gradient(to right, 
+    #1a1208 0%, #3d2b1a 15%, #5c3d1e 30%, #8b6239 45%, 
+    #a67c52 50%, #8b6239 55%, #5c3d1e 70%, #3d2b1a 85%, #1a1208 100%);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.5), inset 0 1px 2px rgba(212,175,55,0.2);
+  position: relative;
+}
+
+.scroll-rod::before,
+.scroll-rod::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 100%;
+  background: radial-gradient(ellipse, #d4af37 0%, #8b6914 40%, #3d2b1a 100%);
+  border-radius: 4px;
+  box-shadow: 0 0 6px rgba(212,175,55,0.3);
+}
+
+.scroll-rod::before { left: -8px; }
+.scroll-rod::after { right: -8px; }
+
+/* ===== Scroll Paper (画卷纸面) ===== */
+.scroll-paper {
+  background: 
+    linear-gradient(180deg, rgba(139,105,20,0.05) 0%, transparent 10%, transparent 90%, rgba(139,105,20,0.05) 100%),
+    linear-gradient(90deg, rgba(212,175,55,0.03) 0%, transparent 3%, transparent 97%, rgba(212,175,55,0.03) 100%),
+    url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23d4af37' fill-opacity='0.02'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3E%3C/svg%3E");
+}
+
+/* ===== Card bottom text overlay ===== */
+.card-bottom-text {
+  background: linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.5) 50%, transparent 100%);
+}
+
 /* ===== Responsive ===== */
 @media (max-width: 640px) {
   .card-hand-gap { gap: -8px; }
